@@ -10,9 +10,6 @@ on:
 
 env:
   TF_VERSION: '1.5.7'
-  YC_CLOUD_ID: ${{ secrets.YC_CLOUD_ID }}
-  YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
-  YC_SA_KEY: ${{ secrets.YC_SA_KEY }}
 
 jobs:
   terraform-iam:
@@ -36,13 +33,13 @@ jobs:
         curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
         echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
 
-    - name: Setup Yandex Cloud Profile
+    - name: Authenticate Yandex Cloud
+      env:
+        YC_SA_KEY: ${{ secrets.YC_SA_KEY }}
       run: |
         echo "$YC_SA_KEY" > sa-key.json
+        export YC_SERVICE_ACCOUNT_KEY_FILE=$(pwd)/sa-key.json
         yc config profile create ci-profile
-        yc config set cloud-id "$YC_CLOUD_ID"
-        yc config set folder-id "$YC_FOLDER_ID"
-        yc config set service-account-key-file sa-key.json
 
     - name: Terraform Init
       run: terraform init
@@ -79,30 +76,22 @@ jobs:
         curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
         echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
 
-    - name: Setup Yandex Cloud Profile
+    - name: Authenticate Yandex Cloud
+      env:
+        YC_SA_KEY: ${{ secrets.YC_SA_KEY }}
       run: |
         echo "$YC_SA_KEY" > sa-key.json
+        export YC_SERVICE_ACCOUNT_KEY_FILE=$(pwd)/sa-key.json
         yc config profile create ci-profile
-        yc config set cloud-id "$YC_CLOUD_ID"
-        yc config set folder-id "$YC_FOLDER_ID"
-        yc config set service-account-key-file sa-key.json
-
-    - name: Get S3 credentials
-      run: |
-        # Получаем access key и secret key из terraform outputs
-        cd ../iam
-        TF_STATE_ACCESS_KEY=$(terraform output -raw sa_access_key)
-        TF_STATE_SECRET_KEY=$(terraform output -raw sa_secret_key)
-        TF_STATE_BUCKET=$(terraform output -raw bucket_name)
-        
-        # Сохраняем как environment variables
-        echo "TF_STATE_ACCESS_KEY=$TF_STATE_ACCESS_KEY" >> $GITHUB_ENV
-        echo "TF_STATE_SECRET_KEY=$TF_STATE_SECRET_KEY" >> $GITHUB_ENV
-        echo "TF_STATE_BUCKET=$TF_STATE_BUCKET" >> $GITHUB_ENV
 
     - name: Terraform Init
+      env:
+        TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+        TF_STATE_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
+        TF_STATE_SECRET_KEY: ${{ secrets.TF_STATE_SECRET_KEY }}
       run: |
         terraform init \
+          -backend-config="endpoint=https://storage.yandexcloud.net" \
           -backend-config="bucket=$TF_STATE_BUCKET" \
           -backend-config="key=terraform.tfstate" \
           -backend-config="region=ru-central1" \
@@ -122,3 +111,4 @@ jobs:
     - name: Terraform Show
       run: terraform show -no-color
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+EOF
