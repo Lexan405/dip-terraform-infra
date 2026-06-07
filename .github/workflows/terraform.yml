@@ -111,4 +111,3 @@ jobs:
     - name: Terraform Show
       run: terraform show -no-color
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-EOF
