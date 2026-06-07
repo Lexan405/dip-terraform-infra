@@ -10,7 +10,6 @@ on:
 
 env:
   TF_VERSION: '1.5.7'
-  YC_SA_KEY: ${{ secrets.YC_SA_KEY }}
   YC_CLOUD_ID: ${{ secrets.YC_CLOUD_ID }}
   YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
 
@@ -21,8 +20,6 @@ jobs:
     defaults:
       run:
         working-directory: ./iam
-    env:
-      YC_TOKEN: ${{ secrets.YC_SA_KEY }}
 
     steps:
     - name: Checkout
@@ -57,10 +54,6 @@ jobs:
       run: terraform plan
       if: github.event_name == 'pull_request'
 
-    - name: Terraform Apply
-      run: terraform apply -auto-approve
-      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
   terraform-infra:
     name: Terraform Infrastructure
     runs-on: ubuntu-latest
@@ -69,7 +62,6 @@ jobs:
       run:
         working-directory: ./infra
     env:
-      YC_TOKEN: ${{ secrets.YC_SA_KEY }}
       TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
       TF_STATE_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
       TF_STATE_SECRET_KEY: ${{ secrets.TF_STATE_SECRET_KEY }}
@@ -121,6 +113,6 @@ jobs:
       run: terraform plan
       if: github.event_name == 'pull_request'
 
-    - name: Terraform Apply
-      run: terraform apply -auto-approve
+    - name: Terraform Show
+      run: terraform show -no-color
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
