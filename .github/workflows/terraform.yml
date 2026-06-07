@@ -61,6 +61,10 @@ jobs:
     defaults:
       run:
         working-directory: ./infra
+    env:
+      TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+      TF_STATE_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
+      TF_STATE_SECRET_KEY: ${{ secrets.TF_STATE_SECRET_KEY }}
 
     steps:
     - name: Checkout
@@ -76,29 +80,21 @@ jobs:
         curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
         echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
 
-    - name: Authenticate Yandex Cloud
-      env:
-        YC_SA_KEY: ${{ secrets.YC_SA_KEY }}
+    - name: Create backend.conf
       run: |
-        echo "$YC_SA_KEY" > sa-key.json
-        export YC_SERVICE_ACCOUNT_KEY_FILE=$(pwd)/sa-key.json
-        yc config profile create ci-profile
+        cat > backend.conf << 'BACKEND'
+        endpoint = "https://storage.yandexcloud.net"
+        bucket = "${TF_STATE_BUCKET}"
+        key = "terraform.tfstate"
+        access_key = "${TF_STATE_ACCESS_KEY}"
+        secret_key = "${TF_STATE_SECRET_KEY}"
+        skip_region_validation = true
+        skip_credentials_validation = true
+        skip_metadata_api_check = true
+        BACKEND
 
     - name: Terraform Init
-      env:
-        TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
-        TF_STATE_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
-        TF_STATE_SECRET_KEY: ${{ secrets.TF_STATE_SECRET_KEY }}
-      run: |
-        terraform init \
-          -backend-config="endpoint=https://storage.yandexcloud.net" \
-          -backend-config="bucket=$TF_STATE_BUCKET" \
-          -backend-config="key=terraform.tfstate" \
-          -backend-config="access_key=$TF_STATE_ACCESS_KEY" \
-          -backend-config="secret_key=$TF_STATE_SECRET_KEY" \
-          -backend-config="skip_region_validation=true" \
-          -backend-config="skip_credentials_validation=true" \
-          -backend-config="skip_metadata_api_check=true"
+      run: terraform init -backend-config=backend.conf
 
     - name: Terraform Format
       run: terraform fmt -check
