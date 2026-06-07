@@ -15,9 +15,56 @@ env:
   YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
 
 jobs:
-  terraform:
-    name: Terraform
+  terraform-iam:
+    name: Terraform IAM
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./iam
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: Install Yandex Cloud CLI
+      run: |
+        curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+        echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
+
+    - name: Authenticate Yandex Cloud
+      run: |
+        echo "$YC_SA_KEY" > sa-key.json
+        yc config profile create ci-profile
+        yc config set service-account-key-file sa-key.json
+        yc config set cloud-id $YC_CLOUD_ID
+        yc config set folder-id $YC_FOLDER_ID
+
+    - name: Terraform Init
+      run: terraform init
+
+    - name: Terraform Format
+      run: terraform fmt -check
+
+    - name: Terraform Validate
+      run: terraform validate
+
+    - name: Terraform Plan
+      run: terraform plan
+      if: github.event_name == 'pull_request'
+
+    - name: Terraform Apply
+      run: terraform apply -auto-approve
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+  terraform-infra:
+    name: Terraform Infrastructure
+    runs-on: ubuntu-latest
+    needs: terraform-iam
     defaults:
       run:
         working-directory: ./infra
@@ -31,10 +78,32 @@ jobs:
       with:
         terraform_version: ${{ env.TF_VERSION }}
 
-    - name: Setup Yandex Cloud CLI
-      uses: yc-actions/yc-github-action@v4
-      with:
-        yc-sa-json-credentials: ${{ env.YC_SA_KEY }}
+    - name: Install Yandex Cloud CLI
+      run: |
+        curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+        echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
+
+    - name: Authenticate Yandex Cloud
+      run: |
+        echo "$YC_SA_KEY" > sa-key.json
+        yc config profile create ci-profile
+        yc config set service-account-key-file sa-key.json
+        yc config set cloud-id $YC_CLOUD_ID
+        yc config set folder-id $YC_FOLDER_ID
+
+    - name: Create backend.conf
+      run: |
+        cat << 'BACKEND' > backend.conf
+        endpoint                   = "https://storage.yandexcloud.net"
+        bucket                     = "${{ secrets.TF_STATE_BUCKET }}"
+        key                        = "terraform.tfstate"
+        region                     = "ru-central1"
+        access_key                 = "${{ secrets.TF_STATE_ACCESS_KEY }}"
+        secret_key                 = "${{ secrets.TF_STATE_SECRET_KEY }}"
+        skip_region_validation     = true
+        skip_credentials_validation = true
+        skip_requesting_account_id  = true
+        BACKEND
 
     - name: Terraform Init
       run: terraform init -backend-config=backend.conf
