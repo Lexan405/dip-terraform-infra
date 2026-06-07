@@ -64,12 +64,12 @@ resource "yandex_kubernetes_cluster" "dip_k8s" {
   network_id      = yandex_vpc_network.dip_network.id
   release_channel = var.k8s_release_channel
 
-  
+
   service_account_id      = data.yandex_iam_service_account.terraform_sa.id
   node_service_account_id = data.yandex_iam_service_account.terraform_sa.id
 
   master {
-    
+
     zonal {
       zone      = yandex_vpc_subnet.subnet_a.zone
       subnet_id = yandex_vpc_subnet.subnet_a.id
@@ -99,8 +99,8 @@ resource "yandex_kubernetes_node_group" "dip_k8s_nodes" {
     boot_disk {
       type = "network-hdd"
       size = var.node_disk_size
-      
-      
+
+
     }
 
     scheduling_policy {

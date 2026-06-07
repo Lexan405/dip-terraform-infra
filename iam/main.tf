@@ -57,13 +57,13 @@ resource "yandex_storage_bucket" "tf_state" {
   bucket     = "dip-tf-state-${var.folder_id}"
   access_key = yandex_iam_service_account_static_access_key.terraform_sa_key.access_key
   secret_key = yandex_iam_service_account_static_access_key.terraform_sa_key.secret_key
-  
+
   # Отключаем публичный доступ для безопасности
   anonymous_access_flags {
     read = false
     list = false
   }
-  
+
   force_destroy = true
 }
 
