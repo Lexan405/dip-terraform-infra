@@ -12,6 +12,7 @@ env:
   TF_VERSION: '1.5.7'
   YC_CLOUD_ID: ${{ secrets.YC_CLOUD_ID }}
   YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
+  YC_SA_KEY: ${{ secrets.YC_SA_KEY }}
 
 jobs:
   terraform-iam:
@@ -37,9 +38,11 @@ jobs:
 
     - name: Setup Yandex Cloud Profile
       run: |
+        echo "$YC_SA_KEY" > sa-key.json
         yc config profile create ci-profile
         yc config set cloud-id "$YC_CLOUD_ID"
         yc config set folder-id "$YC_FOLDER_ID"
+        yc config set service-account-key-file sa-key.json
 
     - name: Terraform Init
       run: terraform init
@@ -61,10 +64,6 @@ jobs:
     defaults:
       run:
         working-directory: ./infra
-    env:
-      TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
-      TF_STATE_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
-      TF_STATE_SECRET_KEY: ${{ secrets.TF_STATE_SECRET_KEY }}
 
     steps:
     - name: Checkout
@@ -82,26 +81,33 @@ jobs:
 
     - name: Setup Yandex Cloud Profile
       run: |
+        echo "$YC_SA_KEY" > sa-key.json
         yc config profile create ci-profile
         yc config set cloud-id "$YC_CLOUD_ID"
         yc config set folder-id "$YC_FOLDER_ID"
+        yc config set service-account-key-file sa-key.json
 
-    - name: Create backend.conf
+    - name: Get S3 credentials
       run: |
-        cat << 'BACKEND' > backend.conf
-        endpoint                   = "https://storage.yandexcloud.net"
-        bucket                     = "$TF_STATE_BUCKET"
-        key                        = "terraform.tfstate"
-        region                     = "ru-central1"
-        access_key                 = "$TF_STATE_ACCESS_KEY"
-        secret_key                 = "$TF_STATE_SECRET_KEY"
-        skip_region_validation     = true
-        skip_credentials_validation = true
-        skip_requesting_account_id  = true
-        BACKEND
+        # Получаем access key и secret key из terraform outputs
+        cd ../iam
+        TF_STATE_ACCESS_KEY=$(terraform output -raw sa_access_key)
+        TF_STATE_SECRET_KEY=$(terraform output -raw sa_secret_key)
+        TF_STATE_BUCKET=$(terraform output -raw bucket_name)
+        
+        # Сохраняем как environment variables
+        echo "TF_STATE_ACCESS_KEY=$TF_STATE_ACCESS_KEY" >> $GITHUB_ENV
+        echo "TF_STATE_SECRET_KEY=$TF_STATE_SECRET_KEY" >> $GITHUB_ENV
+        echo "TF_STATE_BUCKET=$TF_STATE_BUCKET" >> $GITHUB_ENV
 
     - name: Terraform Init
-      run: terraform init -backend-config=backend.conf
+      run: |
+        terraform init \
+          -backend-config="bucket=$TF_STATE_BUCKET" \
+          -backend-config="key=terraform.tfstate" \
+          -backend-config="region=ru-central1" \
+          -backend-config="access_key=$TF_STATE_ACCESS_KEY" \
+          -backend-config="secret_key=$TF_STATE_SECRET_KEY"
 
     - name: Terraform Format
       run: terraform fmt -check
