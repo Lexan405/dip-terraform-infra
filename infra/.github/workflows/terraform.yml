@@ -1,0 +1,54 @@
+name: Terraform CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  TF_VERSION: '1.5.7'
+  YC_SA_KEY: ${{ secrets.YC_SA_KEY }}
+  YC_CLOUD_ID: ${{ secrets.YC_CLOUD_ID }}
+  YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
+
+jobs:
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./infra
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: Setup Yandex Cloud CLI
+      uses: yc-actions/yc-github-actions@v1
+      with:
+        yc-sa-json-credentials: ${{ env.YC_SA_KEY }}
+
+    - name: Terraform Init
+      run: terraform init -backend-config=backend.conf
+
+    - name: Terraform Format
+      run: terraform fmt -check
+
+    - name: Terraform Validate
+      run: terraform validate
+
+    - name: Terraform Plan
+      run: terraform plan
+      if: github.event_name == 'pull_request'
+
+    - name: Terraform Apply
+      run: terraform apply -auto-approve
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
