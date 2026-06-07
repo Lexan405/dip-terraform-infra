@@ -40,9 +40,11 @@ jobs:
       run: |
         echo "$YC_SA_KEY" > sa-key.json
         yc config profile create ci-profile
-        yc config set service-account-key-file sa-key.json
+        export YC_SERVICE_ACCOUNT_KEY_FILE=$(pwd)/sa-key.json
         yc config set cloud-id $YC_CLOUD_ID
         yc config set folder-id $YC_FOLDER_ID
+        IAM_TOKEN=$(yc iam create-token --service-account-key-file sa-key.json)
+        yc config set token $IAM_TOKEN
 
     - name: Terraform Init
       run: terraform init
@@ -87,9 +89,11 @@ jobs:
       run: |
         echo "$YC_SA_KEY" > sa-key.json
         yc config profile create ci-profile
-        yc config set service-account-key-file sa-key.json
+        export YC_SERVICE_ACCOUNT_KEY_FILE=$(pwd)/sa-key.json
         yc config set cloud-id $YC_CLOUD_ID
         yc config set folder-id $YC_FOLDER_ID
+        IAM_TOKEN=$(yc iam create-token --service-account-key-file sa-key.json)
+        yc config set token $IAM_TOKEN
 
     - name: Create backend.conf
       run: |
