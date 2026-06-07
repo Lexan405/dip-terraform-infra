@@ -82,7 +82,7 @@ jobs:
 
     - name: Create backend.conf
       run: |
-        cat > backend.conf << 'BACKEND'
+        cat > backend.conf << BACKEND
         endpoint = "https://storage.yandexcloud.net"
         bucket = "${TF_STATE_BUCKET}"
         key = "terraform.tfstate"
