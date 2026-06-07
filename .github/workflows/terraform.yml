@@ -32,7 +32,7 @@ jobs:
         terraform_version: ${{ env.TF_VERSION }}
 
     - name: Setup Yandex Cloud CLI
-      uses: yc-actions/yc-github-actions@v1
+      uses: yc-actions/yc-github-action@v4
       with:
         yc-sa-json-credentials: ${{ env.YC_SA_KEY }}
 
